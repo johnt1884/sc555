@@ -872,6 +872,10 @@
                                 <input type="checkbox" id="uniform-selection-bg-checkbox">
                             </div>
                             <div class="options-row">
+                                <label for="smart-thumbnail-size-checkbox">Smart Thumbnail Size</label>
+                                <input type="checkbox" id="smart-thumbnail-size-checkbox" checked>
+                            </div>
+                            <div class="options-row">
                                 <label for="selection-tint-color-picker">Selection Tint Color</label>
                                 <input type="color" id="selection-tint-color-picker" value="#ffffff">
                             </div>
@@ -1212,6 +1216,7 @@
         let editorCurrentAppliedRotation = 0;
         let editorCurrentAppliedFlip = false;
         let editorDeleteEditThumbsFlag = false;
+        let editorPreserveOriginalSizeFlag = null;
         function updatePreserveSizeBtnUI() {
             if (!editorPreserveSizeBtn) return;
             const state = editorPreserveOriginalSizeFlag; // null, true, or false
@@ -1366,6 +1371,7 @@
         const showNumbersCheckbox = document.getElementById('show-numbers-checkbox');
         const enableCategoriesPanelCheckbox = document.getElementById('enable-categories-panel-checkbox');
         const preserveOriginalSizeGlobalCheckbox = document.getElementById('preserve-original-size-global-checkbox');
+        const smartThumbnailSizeCheckbox = document.getElementById('smart-thumbnail-size-checkbox');
         const categoriesPanel = document.getElementById('categories-panel');
         const panelResizer = document.getElementById('panel-resizer');
         const panelContent = document.getElementById('panel-content');
@@ -2557,10 +2563,20 @@
 
             if (editorPreserveSizeBtn) {
                 editorPreserveSizeBtn.onclick = () => {
-                    if (editorPreserveOriginalSizeFlag === null) editorPreserveOriginalSizeFlag = true;
-                    else if (editorPreserveOriginalSizeFlag === true) editorPreserveOriginalSizeFlag = false;
-                    else editorPreserveOriginalSizeFlag = null;
-                    updatePreserveSizeBtnUI();
+                    let nextStateText = "";
+                    if (editorPreserveOriginalSizeFlag === null) {
+                        nextStateText = "ON (Override)";
+                    } else if (editorPreserveOriginalSizeFlag === true) {
+                        nextStateText = "OFF (Override)";
+                    } else {
+                        nextStateText = "Default (Remove Override)";
+                    }
+                    if (confirm(`Are you sure you want to change 'Preserve Size' to ${nextStateText}?`)) {
+                        if (editorPreserveOriginalSizeFlag === null) editorPreserveOriginalSizeFlag = true;
+                        else if (editorPreserveOriginalSizeFlag === true) editorPreserveOriginalSizeFlag = false;
+                        else editorPreserveOriginalSizeFlag = null;
+                        updatePreserveSizeBtnUI();
+                    }
                 };
             }
 
@@ -2838,6 +2854,16 @@
                 });
             }
 
+            if (smartThumbnailSizeCheckbox) {
+                const saved = localStorage.getItem('smartThumbnailSize');
+                const smartSizeEnabled = saved === null ? true : saved === 'true';
+                smartThumbnailSizeCheckbox.checked = smartSizeEnabled;
+                smartThumbnailSizeCheckbox.addEventListener('change', () => {
+                    localStorage.setItem('smartThumbnailSize', smartThumbnailSizeCheckbox.checked);
+                    layoutLandscapeThumbnails();
+                });
+            }
+
             if (applySizeAllBtn) {
                 applySizeAllBtn.addEventListener('click', () => {
                     const hSize = hSizeSelector.value;
@@ -2909,6 +2935,10 @@
                         uniformBgCheckbox.checked = false;
                         mainContainer.classList.remove('uniform-selection-bg');
                         localStorage.setItem('sc-uniform-selection-bg', false);
+                    }
+                    if (smartThumbnailSizeCheckbox) {
+                        smartThumbnailSizeCheckbox.checked = true;
+                        localStorage.setItem('smartThumbnailSize', true);
                     }
                     Object.keys(defaults).forEach(id => {
                         const color = defaults[id];
@@ -3599,9 +3629,6 @@
                 selection.editRotation = selection.rotation;
                 selection.editRotationType = 'uniform';
                 selection.isFullLength = true;
-                if (selection.preserveOriginalSize === undefined || selection.preserveOriginalSize === null) {
-                    selection.preserveOriginalSize = preserveOriginalSizeGlobalCheckbox.checked;
-                }
                 selection.markers = []; // Clear complex markers
                 selection.cuts = [];    // Clear cuts
                 
@@ -3715,9 +3742,6 @@
                 // Main page flip now performs "hard" edit
                 selection.editModeRotated = true;
                 selection.editFlipped = selection.flipped;
-                if (selection.preserveOriginalSize === undefined || selection.preserveOriginalSize === null) {
-                    selection.preserveOriginalSize = preserveOriginalSizeGlobalCheckbox.checked;
-                }
                 selection.markers = []; // Clear complex markers
                 selection.cuts = [];    // Clear cuts
                 
@@ -4020,10 +4044,28 @@
                         let effW = isRotated90 ? originalHeight : originalWidth;
                         let effH = isRotated90 ? originalWidth : originalHeight;
 
-                        if (effW > standardWidth * 1.2 || effH > standardHeight * 1.2) {
-                            const scale = Math.min(standardWidth / effW, standardHeight / effH);
+                        const smartSizeEnabled = smartThumbnailSizeCheckbox ? smartThumbnailSizeCheckbox.checked : true;
+                        if (smartSizeEnabled) {
+                            let tW, tH;
+                            if (effH > effW) {
+                                tW = 284;
+                                tH = 504;
+                            } else if (effH === effW) {
+                                tW = 504;
+                                tH = 504;
+                            } else {
+                                tW = 504;
+                                tH = 284;
+                            }
+                            const scale = Math.min(tW / effW, tH / effH);
                             effW *= scale;
                             effH *= scale;
+                        } else {
+                            if (effW > standardWidth * 1.2 || effH > standardHeight * 1.2) {
+                                const scale = Math.min(standardWidth / effW, standardHeight / effH);
+                                effW *= scale;
+                                effH *= scale;
+                            }
                         }
 
                         const isCurrentlyVertical = effH > effW;
@@ -4131,6 +4173,7 @@
 
             const categories = [
                 { id: 'edits', title: 'New Video Edits (Current Session)' },
+                { id: 'preserve_size', title: 'Videos with Preserve Size Enabled' },
                 { id: 'prior_edits', title: 'Prior Edits (Recorded in Misc Data)' },
                 { id: 'shortcuts_new', title: 'New Shortcuts' },
                 { id: 'shortcuts_verify', title: 'Verify Existing Shortcuts' },
@@ -4169,6 +4212,7 @@
             const selectionsToProcess = Array.from(shortcutSelections.values());
             const summaryActions = {
                 edits: [],
+                preserve_size: [],
                 prior_edits: [],
                 shortcuts_new: [],
                 shortcuts_verify: [],
@@ -4657,6 +4701,14 @@
                     if (sel.cuts && sel.cuts.length > 0) priorDesc += `${sel.cuts.length} Cuts, `;
                     priorDesc = priorDesc.replace(/, $/, ")").replace(/\($/, "");
                     summaryActions.prior_edits.push(priorDesc);
+                }
+
+                const effectivePreserveSize = (sel.preserveOriginalSize !== undefined && sel.preserveOriginalSize !== null) ? sel.preserveOriginalSize : preserveOriginalSizeGlobalCheckbox.checked;
+
+                if (needsProcessing && effectivePreserveSize) {
+                    summaryActions.preserve_size.push(`${sel.videoName} (Current Session Edit)`);
+                } else if (!sel.editModeRotated && (hasCuts || markersChanged || editRotationChanged || editFlippedChanged || sel.crop || sel.loadedHasCuts || sel.loadedEditRotated) && effectivePreserveSize) {
+                    summaryActions.preserve_size.push(`${sel.videoName} (Prior Edit)`);
                 }
 
                 if (!selectionType && !needsProcessing && !hasMetadataChanges && !sel.targetProject && !sel.deleteEditThumbnails) return;
@@ -6664,6 +6716,7 @@
             const isPlaylistRootMode = (currentMode === 'playlist-root' || currentMode === 'update-playlist-root');
             const summaryActions = {
                 edits: [],
+                preserve_size: [],
                 shortcuts_new: [],
                 shortcuts_verify: [],
                 shortcuts_delete: [],
