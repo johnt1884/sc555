@@ -4012,11 +4012,31 @@
             
             const allThumbs = Array.from(document.querySelectorAll('.thumbnail[data-original-width]'));
             if (allThumbs.length > 0) {
+                const smartSizeEnabled = smartThumbnailSizeCheckbox ? smartThumbnailSizeCheckbox.checked : true;
                 const effectiveDims = allThumbs.map(t => {
                     const w = parseFloat(t.dataset.originalWidth);
                     const h = parseFloat(t.dataset.originalHeight);
                     const isRot90 = t.classList.contains('rotate-90') || t.classList.contains('rotate-270');
-                    return { w: isRot90 ? h : w, h: isRot90 ? w : h };
+                    let effW = isRot90 ? h : w;
+                    let effH = isRot90 ? w : h;
+
+                    if (smartSizeEnabled) {
+                        let tW, tH;
+                        if (effH > effW) {
+                            tW = 284;
+                            tH = 504;
+                        } else if (effH === effW) {
+                            tW = 504;
+                            tH = 504;
+                        } else {
+                            tW = 504;
+                            tH = 284;
+                        }
+                        const scale = Math.min(tW / effW, tH / effH);
+                        effW *= scale;
+                        effH *= scale;
+                    }
+                    return { w: effW, h: effH };
                 });
                 const widths = effectiveDims.map(d => d.w).sort((a, b) => a - b);
                 const heights = effectiveDims.map(d => d.h).sort((a, b) => a - b);
@@ -4026,7 +4046,24 @@
                     const w = parseFloat(t.dataset.originalWidth);
                     const h = parseFloat(t.dataset.originalHeight);
                     const isRot90 = t.classList.contains('rotate-90') || t.classList.contains('rotate-270');
-                    return (isRot90 ? h : w) === standardWidth;
+                    let effW = isRot90 ? h : w;
+                    if (smartSizeEnabled) {
+                        let effH = isRot90 ? w : h;
+                        let tW, tH;
+                        if (effH > effW) {
+                            tW = 284;
+                            tH = 504;
+                        } else if (effH === effW) {
+                            tW = 504;
+                            tH = 504;
+                        } else {
+                            tW = 504;
+                            tH = 284;
+                        }
+                        const scale = Math.min(tW / effW, tH / effH);
+                        effW *= scale;
+                    }
+                    return effW === standardWidth;
                 }) || allThumbs[0];
             }
 
