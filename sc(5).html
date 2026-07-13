@@ -876,6 +876,10 @@
                                 <input type="checkbox" id="smart-thumbnail-size-checkbox" checked>
                             </div>
                             <div class="options-row">
+                                <label for="hide-edited-load-new-checkbox">Hide Edited in Load New</label>
+                                <input type="checkbox" id="hide-edited-load-new-checkbox" checked>
+                            </div>
+                            <div class="options-row">
                                 <label for="selection-tint-color-picker">Selection Tint Color</label>
                                 <input type="color" id="selection-tint-color-picker" value="#ffffff">
                             </div>
@@ -1372,6 +1376,7 @@
         const enableCategoriesPanelCheckbox = document.getElementById('enable-categories-panel-checkbox');
         const preserveOriginalSizeGlobalCheckbox = document.getElementById('preserve-original-size-global-checkbox');
         const smartThumbnailSizeCheckbox = document.getElementById('smart-thumbnail-size-checkbox');
+        const hideEditedLoadNewCheckbox = document.getElementById('hide-edited-load-new-checkbox');
         const categoriesPanel = document.getElementById('categories-panel');
         const panelResizer = document.getElementById('panel-resizer');
         const panelContent = document.getElementById('panel-content');
@@ -2864,6 +2869,15 @@
                 });
             }
 
+            if (hideEditedLoadNewCheckbox) {
+                const saved = localStorage.getItem('hideEditedLoadNew');
+                const hideEditedEnabled = saved === null ? true : saved === 'true';
+                hideEditedLoadNewCheckbox.checked = hideEditedEnabled;
+                hideEditedLoadNewCheckbox.addEventListener('change', () => {
+                    localStorage.setItem('hideEditedLoadNew', hideEditedLoadNewCheckbox.checked);
+                });
+            }
+
             if (applySizeAllBtn) {
                 applySizeAllBtn.addEventListener('click', () => {
                     const hSize = hSizeSelector.value;
@@ -2939,6 +2953,10 @@
                     if (smartThumbnailSizeCheckbox) {
                         smartThumbnailSizeCheckbox.checked = true;
                         localStorage.setItem('smartThumbnailSize', true);
+                    }
+                    if (hideEditedLoadNewCheckbox) {
+                        hideEditedLoadNewCheckbox.checked = true;
+                        localStorage.setItem('hideEditedLoadNew', true);
                     }
                     Object.keys(defaults).forEach(id => {
                         const color = defaults[id];
@@ -5201,7 +5219,7 @@
                                     });
                                     initialVideoCategories.set(key, new Set(cats));
                                 }
-                            } else if (part === 'edit_rotated:true' || part === 'has_cuts:true' || part.startsWith('edit_rot:') || part.startsWith('cuts:') || part.startsWith('markers:')) {
+                            } else if (part === 'edit_rotated:true' || part === 'has_cuts:true' || part.startsWith('edit_rot:') || part.startsWith('cuts:') || part.startsWith('markers:') || part.startsWith('crop:') || part.startsWith('preserve_size:') || part.startsWith('backup_original:')) {
                                 // Track existence for UI but do not populate details
                                 // We simplify the flag to prevent complex strings from leaking into logic
                                 let simplifiedFlag = 'edit_rotated:true';
@@ -5917,6 +5935,17 @@
                         if (isNewOnly && mostRecentShortcutTime && videoFile.lastModified <= mostRecentShortcutTime) {
                             loadErrors.push({ project: project.path, video: videoFile.name, reason: "Video not newer than last shortcut" });
                             continue;
+                        }
+
+                        const hideEditedEnabled = hideEditedLoadNewCheckbox ? hideEditedLoadNewCheckbox.checked : true;
+                        if (isNewOnly && hideEditedEnabled) {
+                            const rotData = projectRotationData.get(videoFile.name.toLowerCase()) || { rotation: "0", flipped: false };
+                            const hasRotationOrFlip = rotData.rotation !== "0" || rotData.flipped;
+                            const key = project.path + '|' + videoFile.name;
+                            const hasPriorEdit = editModeRotatedVideos.has(key);
+                            if (hasRotationOrFlip || hasPriorEdit) {
+                                continue;
+                            }
                         }
 
                         const files = groupedFiles[videoName].sort((a, b) => {
