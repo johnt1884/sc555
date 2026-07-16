@@ -3994,6 +3994,7 @@
             if (enableCategoriesPanelCheckbox.checked && categoriesPanel.style.display !== 'none') {
                 containerWidth -= categoriesPanel.offsetWidth;
             }
+            const smartSizeEnabled = smartThumbnailSizeCheckbox ? smartThumbnailSizeCheckbox.checked : true;
 
             const getScale = (selector) => {
                 const isAuto = selector.value === 'auto';
@@ -4010,12 +4011,20 @@
             let standardHeight = 180;
             let referenceThumb = null;
             
-            const allThumbs = Array.from(document.querySelectorAll('.thumbnail[data-original-width]'));
+            const allThumbs = Array.from(document.querySelectorAll('.thumbnail'));
             if (allThumbs.length > 0) {
-                const smartSizeEnabled = smartThumbnailSizeCheckbox ? smartThumbnailSizeCheckbox.checked : true;
                 const effectiveDims = allThumbs.map(t => {
-                    const w = parseFloat(t.dataset.originalWidth);
-                    const h = parseFloat(t.dataset.originalHeight);
+                    let w = parseFloat(t.dataset.originalWidth);
+                    let h = parseFloat(t.dataset.originalHeight);
+                    if (isNaN(w) || isNaN(h) || w <= 0 || h <= 0) {
+                        if (t.naturalWidth && t.naturalHeight) {
+                            w = t.naturalWidth;
+                            h = t.naturalHeight;
+                        } else {
+                            w = 284;
+                            h = 504;
+                        }
+                    }
                     const isRot90 = t.classList.contains('rotate-90') || t.classList.contains('rotate-270');
                     let effW = isRot90 ? h : w;
                     let effH = isRot90 ? w : h;
@@ -4043,8 +4052,17 @@
                 standardWidth = widths[Math.floor(widths.length / 2)];
                 standardHeight = heights[Math.floor(heights.length / 2)];
                 referenceThumb = allThumbs.find(t => {
-                    const w = parseFloat(t.dataset.originalWidth);
-                    const h = parseFloat(t.dataset.originalHeight);
+                    let w = parseFloat(t.dataset.originalWidth);
+                    let h = parseFloat(t.dataset.originalHeight);
+                    if (isNaN(w) || isNaN(h) || w <= 0 || h <= 0) {
+                        if (t.naturalWidth && t.naturalHeight) {
+                            w = t.naturalWidth;
+                            h = t.naturalHeight;
+                        } else {
+                            w = 284;
+                            h = 504;
+                        }
+                    }
                     const isRot90 = t.classList.contains('rotate-90') || t.classList.contains('rotate-270');
                     let effW = isRot90 ? h : w;
                     if (smartSizeEnabled) {
@@ -4090,10 +4108,19 @@
                     const wrappers = element.querySelectorAll('.thumbnail-wrapper');
                     wrappers.forEach(wrapper => {
                         const thumb = wrapper.querySelector('.thumbnail');
-                        if (!thumb.dataset.originalWidth) return;
+                        if (!thumb) return;
                         
                         let originalWidth = parseFloat(thumb.dataset.originalWidth);
                         let originalHeight = parseFloat(thumb.dataset.originalHeight);
+                        if (isNaN(originalWidth) || isNaN(originalHeight) || originalWidth <= 0 || originalHeight <= 0) {
+                            if (thumb.naturalWidth && thumb.naturalHeight) {
+                                originalWidth = thumb.naturalWidth;
+                                originalHeight = thumb.naturalHeight;
+                            } else {
+                                originalWidth = 284;
+                                originalHeight = 504;
+                            }
+                        }
                         const isRotated90 = thumb.classList.contains('rotate-90') || thumb.classList.contains('rotate-270');
                         
                         let effW = isRotated90 ? originalHeight : originalWidth;
