@@ -419,13 +419,13 @@
             transform: translate(-50%, -50%) rotate(270deg);
         }
         .rotate-90.flipped {
-            transform: translate(-50%, -50%) rotate(90deg) scaleX(-1);
+            transform: translate(-50%, -50%) scaleX(-1) rotate(90deg);
         }
         .rotate-180.flipped {
-            transform: translate(-50%, -50%) rotate(180deg) scaleX(-1);
+            transform: translate(-50%, -50%) scaleX(-1) rotate(180deg);
         }
         .rotate-270.flipped {
-            transform: translate(-50%, -50%) rotate(270deg) scaleX(-1);
+            transform: translate(-50%, -50%) scaleX(-1) rotate(270deg);
         }
         #player.rotate-90 {
             transform: rotate(90deg);
@@ -1616,11 +1616,12 @@
         function editorApplyRotationToViewer(d, flipped = editorCurrentAppliedFlip) {
             editorCurrentAppliedRotation = (d + 360) % 360;
             editorCurrentAppliedFlip = flipped;
-            let transform = `rotate(${editorCurrentAppliedRotation}deg) translate3d(0,0,0)`;
+            let transform = '';
             if (flipped) {
-                transform += ' scaleX(-1)';
+                transform += 'scaleX(-1) ';
             }
-            editorMainVideo.style.transform = transform;
+            transform += `rotate(${editorCurrentAppliedRotation}deg) translate3d(0,0,0)`;
+            editorMainVideo.style.transform = transform.trim();
             applyCropPreview();
 
             // Handle container resizing for vertical rotation (90/270)
@@ -3348,15 +3349,15 @@
             player.style.maxHeight = '90vh';
 
             let transform = '';
+            if (flipped) {
+                transform += 'scaleX(-1) ';
+            }
             if (rotation !== "0") {
                 transform += `rotate(${rotation}deg) `;
                 if (rotation === "90" || rotation === "270") {
                     player.style.maxWidth = '90vh';
                     player.style.maxHeight = '90vw';
                 }
-            }
-            if (flipped) {
-                transform += 'scaleX(-1) ';
             }
             player.style.transform = transform.trim();
             videoModal.style.display = 'flex';
