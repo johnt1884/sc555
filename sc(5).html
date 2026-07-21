@@ -913,14 +913,14 @@
                         <option value="0.2">H 20%</option>
                         <option value="0.3">H 30%</option>
                         <option value="0.4">H 40%</option>
-                        <option value="0.5">H 50%</option>
+                        <option value="0.5" selected>H 50%</option>
                         <option value="0.6">H 60%</option>
                         <option value="0.7">H 70%</option>
                         <option value="0.8">H 80%</option>
                         <option value="0.85">H 85%</option>
                         <option value="0.9">H 90%</option>
                         <option value="1">H 100%</option>
-                        <option value="custom" selected>H Custom</option>
+                        <option value="custom">H Custom</option>
                     </select>
                     <select id="v-size-selector" title="Vertical Thumbnail Size">
                         <option value="auto">V Auto</option>
@@ -932,12 +932,12 @@
                         <option value="0.6">V 60%</option>
                         <option value="0.7">V 70%</option>
                         <option value="0.8">V 80%</option>
-                        <option value="0.85" selected>V 85%</option>
+                        <option value="0.85">V 85%</option>
                         <option value="0.9">V 90%</option>
                         <option value="1">V 100%</option>
-                        <option value="custom">V Custom</option>
+                        <option value="custom" selected>V Custom</option>
                     </select>
-                    <input type="number" id="custom-size-input" style="display:inline-block; width: 60px; height: 28px; background-color: var(--top-bar-color); color: white; border: 1px solid #444444; margin-left: 5px; text-align: center;" placeholder="%" min="1" max="500" value="150">
+                    <input type="number" id="custom-size-input" style="display:inline-block; width: 60px; height: 28px; background-color: var(--top-bar-color); color: white; border: 1px solid #444444; margin-left: 5px; text-align: center;" placeholder="%" min="1" max="500" value="45">
                     <select id="sort-selector">
                         <option value="" disabled selected hidden>Sort</option>
                         <option value="name-asc">Name (A-Z)</option>
@@ -3411,9 +3411,9 @@
                     }
                 } else {
                     // Default for projects not yet customized
-                    hSizeSelector.value = "custom";
-                    vSizeSelector.value = "0.85";
-                    customSizeInput.value = "150";
+                    hSizeSelector.value = "0.5";
+                    vSizeSelector.value = "custom";
+                    customSizeInput.value = "45";
                     customSizeInput.style.display = 'inline-block';
                 }
             }
@@ -3597,7 +3597,7 @@
             }
             debouncedLayout();
         }
-        function createRowActionBar(videoName, projectPath, subfolder, rowDiv, projectName) {
+        function createRowActionBar(videoName, projectPath, subfolder, rowDiv, projectName, videoFile = null) {
             const bar = document.createElement("div"); bar.className = "row-action-bar";
             const leftGroup = document.createElement("div"); leftGroup.className = "row-action-group-left";
 
@@ -3877,6 +3877,30 @@
                 leftGroup.appendChild(catBtn);
             }
 
+            if (videoFile) {
+                const infoBtn = document.createElement('button');
+                infoBtn.className = 'bar-button row-bar-btn';
+                infoBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: white;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
+                infoBtn.title = 'Loading video info...';
+
+                const sizeStr = formatFileSize(videoFile.size);
+                getVideoResolution(videoFile).then(res => {
+                    if (res) {
+                        infoBtn.title = `Resolution: ${res.width}x${res.height}\nSize: ${sizeStr}`;
+                    } else {
+                        infoBtn.title = `Size: ${sizeStr}`;
+                    }
+                });
+
+                infoBtn.onclick = (e) => {
+                    e.stopPropagation();
+                };
+
+                if (!isPlaylistMode) {
+                    leftGroup.appendChild(infoBtn);
+                }
+            }
+
             bar.appendChild(leftGroup);
 
             const rightGroup = document.createElement('div');
@@ -3985,6 +4009,30 @@
         function debouncedLayout() {
             clearTimeout(layoutTimeout);
             layoutTimeout = setTimeout(layoutLandscapeThumbnails, 100);
+        }
+
+        function getVideoResolution(file) {
+            return new Promise((resolve) => {
+                const video = document.createElement('video');
+                video.preload = 'metadata';
+                const url = URL.createObjectURL(file);
+                video.onloadedmetadata = () => {
+                    URL.revokeObjectURL(url);
+                    resolve({ width: video.videoWidth, height: video.videoHeight });
+                };
+                video.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(null);
+                };
+                video.src = url;
+            });
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return 'Unknown size';
+            if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
+            if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+            return (bytes / 1024).toFixed(0) + ' KB';
         }
 
         function layoutLandscapeThumbnails() {
@@ -6087,7 +6135,7 @@
                     for (const rowData of projectRows) {
                         const { rowDiv, videoFile, files, hasProjectSc, hasRootSc, rootScEntry, scDate } = rowData;
 
-                        rowDiv.appendChild(createRowActionBar(videoFile.name, project.path, videoFile.subfolder, rowDiv, project.name));
+                        rowDiv.appendChild(createRowActionBar(videoFile.name, project.path, videoFile.subfolder, rowDiv, project.name, videoFile));
                         const dateInfo = document.createElement('div');
                         dateInfo.className = 'date-info';
                         if (currentMode === 'update-playlist-root' && scDate) {
