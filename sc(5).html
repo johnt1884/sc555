@@ -4029,10 +4029,20 @@
         }
 
         function formatFileSize(bytes) {
-            if (!bytes) return 'Unknown size';
-            if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + ' GB';
-            if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
-            return (bytes / 1024).toFixed(0) + ' KB';
+            if (bytes === undefined || bytes === null || isNaN(bytes)) return 'Unknown size';
+            const exactBytes = bytes.toString().replace(/\B(?=(\d{3})+(?!\B))/g, ",");
+            let readable = '';
+            if (bytes >= 1073741824) {
+                readable = (bytes / 1073741824).toFixed(2) + ' GB';
+            } else if (bytes >= 1048576) {
+                readable = (bytes / 1048576).toFixed(2) + ' MB';
+            } else if (bytes >= 1024) {
+                readable = (bytes / 1024).toFixed(1) + ' KB';
+            } else {
+                readable = bytes + ' bytes';
+                return readable;
+            }
+            return `${readable} (${exactBytes} bytes)`;
         }
 
         function layoutLandscapeThumbnails() {
