@@ -4015,13 +4015,32 @@
             return new Promise((resolve) => {
                 const video = document.createElement('video');
                 video.preload = 'metadata';
+                video.style.display = 'none';
+                document.body.appendChild(video);
+
                 const url = URL.createObjectURL(file);
+
+                const cleanup = () => {
+                    try {
+                        if (video.parentNode) {
+                            document.body.removeChild(video);
+                        }
+                    } catch (e) {}
+                    setTimeout(() => {
+                        try {
+                            URL.revokeObjectURL(url);
+                        } catch (e) {}
+                    }, 2000);
+                };
+
                 video.onloadedmetadata = () => {
-                    URL.revokeObjectURL(url);
-                    resolve({ width: video.videoWidth, height: video.videoHeight });
+                    const width = video.videoWidth;
+                    const height = video.videoHeight;
+                    cleanup();
+                    resolve({ width, height });
                 };
                 video.onerror = () => {
-                    URL.revokeObjectURL(url);
+                    cleanup();
                     resolve(null);
                 };
                 video.src = url;
