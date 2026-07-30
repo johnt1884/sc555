@@ -4013,7 +4013,7 @@
 
         let activeMetadataLoads = 0;
         const metadataQueue = [];
-        const MAX_CONCURRENT_METADATA_LOADS = 5;
+        const MAX_CONCURRENT_METADATA_LOADS = 1;
 
         function processMetadataQueue() {
             while (activeMetadataLoads < MAX_CONCURRENT_METADATA_LOADS && metadataQueue.length > 0) {
@@ -4036,21 +4036,37 @@
             });
         }
 
+        let globalOffscreenVideo = null;
+        function getGlobalOffscreenVideo() {
+            if (!globalOffscreenVideo) {
+                globalOffscreenVideo = document.createElement('video');
+                globalOffscreenVideo.preload = 'metadata';
+                globalOffscreenVideo.style.display = 'none';
+                document.body.appendChild(globalOffscreenVideo);
+            }
+            return globalOffscreenVideo;
+        }
+
         function getVideoResolutionInternal(file) {
             return new Promise((resolve) => {
-                const video = document.createElement('video');
-                video.preload = 'metadata';
-                video.style.display = 'none';
-                document.body.appendChild(video);
-
+                const video = getGlobalOffscreenVideo();
                 const url = URL.createObjectURL(file);
 
+                const onLoaded = () => {
+                    const width = video.videoWidth;
+                    const height = video.videoHeight;
+                    cleanup();
+                    resolve({ width, height });
+                };
+
+                const onError = () => {
+                    cleanup();
+                    resolve(null);
+                };
+
                 const cleanup = () => {
-                    try {
-                        if (video.parentNode) {
-                            document.body.removeChild(video);
-                        }
-                    } catch (e) {}
+                    video.removeEventListener('loadedmetadata', onLoaded);
+                    video.removeEventListener('error', onError);
                     setTimeout(() => {
                         try {
                             URL.revokeObjectURL(url);
@@ -4058,16 +4074,8 @@
                     }, 2000);
                 };
 
-                video.onloadedmetadata = () => {
-                    const width = video.videoWidth;
-                    const height = video.videoHeight;
-                    cleanup();
-                    resolve({ width, height });
-                };
-                video.onerror = () => {
-                    cleanup();
-                    resolve(null);
-                };
+                video.addEventListener('loadedmetadata', onLoaded);
+                video.addEventListener('error', onError);
                 video.src = url;
             });
         }
