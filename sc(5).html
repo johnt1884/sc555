@@ -4011,7 +4011,32 @@
             layoutTimeout = setTimeout(layoutLandscapeThumbnails, 100);
         }
 
+        let activeMetadataLoads = 0;
+        const metadataQueue = [];
+        const MAX_CONCURRENT_METADATA_LOADS = 5;
+
+        function processMetadataQueue() {
+            while (activeMetadataLoads < MAX_CONCURRENT_METADATA_LOADS && metadataQueue.length > 0) {
+                const task = metadataQueue.shift();
+                activeMetadataLoads++;
+                task().finally(() => {
+                    activeMetadataLoads--;
+                    processMetadataQueue();
+                });
+            }
+        }
+
         function getVideoResolution(file) {
+            return new Promise((resolve) => {
+                const runTask = () => {
+                    return getVideoResolutionInternal(file).then(resolve);
+                };
+                metadataQueue.push(runTask);
+                processMetadataQueue();
+            });
+        }
+
+        function getVideoResolutionInternal(file) {
             return new Promise((resolve) => {
                 const video = document.createElement('video');
                 video.preload = 'metadata';
