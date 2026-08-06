@@ -913,7 +913,7 @@
                         <input type="checkbox" id="show-numbers-checkbox">
                         <label for="show-numbers-checkbox">Show Numbers</label>
                     </div>
-                    <div class="checkbox-container">
+                    <div class="checkbox-container" style="display: none !important;">
                         <input type="checkbox" id="enable-categories-panel-checkbox">
                         <label for="enable-categories-panel-checkbox">Categories</label>
                     </div>
@@ -932,7 +932,7 @@
                 <div id="thumbnail-container">
                     <div id="content-spacer" style="position: absolute; top: 0; left: 0; z-index: -1;"></div>
                 </div>
-                <div id="categories-panel">
+                <div id="categories-panel" style="display: none !important;">
                     <div id="panel-resizer"></div>
                     <div id="panel-content"></div>
                 </div>
@@ -1212,7 +1212,7 @@
         let editModeRotatedVideos = new Map(); // Key: projectPath + '|' + videoName, Value: true
         let initialVideoCategories = new Map(); // Key: projectPath + '|' + videoName, Value: Set of category names
         let projectCategories = new Map(); // Key: projectPath, Value: Set of category names
-        let globalSavedCategories = new Set(JSON.parse(localStorage.getItem('globalSavedCategories') || '[]'));
+        let globalSavedCategories = new Set(JSON.parse(localStorage.getItem('clip-globalSavedCategories') || '[]'));
 
         // Browser Fallback for File System Access API (Firefox/Brave support)
         function createVirtualFileHandle(file, path) {
@@ -1336,7 +1336,7 @@
         const categoriesPanel = document.getElementById('categories-panel');
         const panelResizer = document.getElementById('panel-resizer');
         const panelContent = document.getElementById('panel-content');
-        let lastUsedMoveTarget = localStorage.getItem("lastUsedMoveTarget");
+        let lastUsedMoveTarget = localStorage.getItem("clip-lastUsedMoveTarget");
 
         function updateRowNumbers() {
             const showNumbers = showNumbersCheckbox.checked;
@@ -1377,7 +1377,7 @@
             if (isResizingPanel) {
                 isResizingPanel = false;
                 document.body.style.cursor = '';
-                localStorage.setItem('categoriesPanelWidth', categoriesPanel.style.width);
+                localStorage.setItem('clip-categoriesPanelWidth', categoriesPanel.style.width);
             }
         });
 
@@ -1385,9 +1385,9 @@
             const enabled = enableCategoriesPanelCheckbox.checked;
             categoriesPanel.style.display = enabled ? 'block' : 'none';
             panelResizer.style.display = enabled ? 'block' : 'none';
-            localStorage.setItem('enableCategoriesPanel', enabled);
+            localStorage.setItem('clip-enableCategoriesPanel', enabled);
             if (enabled) {
-                const savedWidth = localStorage.getItem('categoriesPanelWidth');
+                const savedWidth = localStorage.getItem('clip-categoriesPanelWidth');
                 if (savedWidth) categoriesPanel.style.width = savedWidth;
                 renderCategoriesPanel();
             }
@@ -1796,7 +1796,7 @@
                 if (!projectCategories.has(projPath)) projectCategories.set(projPath, new Set());
                 projectCategories.get(projPath).add(catName);
                 globalSavedCategories.add(catName);
-                localStorage.setItem('globalSavedCategories', JSON.stringify(Array.from(globalSavedCategories)));
+                localStorage.setItem('clip-globalSavedCategories', JSON.stringify(Array.from(globalSavedCategories)));
             } else {
                 cats.delete(catName);
             }
@@ -1830,7 +1830,7 @@
             });
 
             if (isAdd) {
-                localStorage.setItem('globalSavedCategories', JSON.stringify(Array.from(globalSavedCategories)));
+                localStorage.setItem('clip-globalSavedCategories', JSON.stringify(Array.from(globalSavedCategories)));
             }
 
             topCategoriesDropdown.style.display = 'none';
@@ -2750,7 +2750,7 @@
             Object.keys(colorPickers).forEach(id => {
                 const picker = colorPickers[id];
                 if (!picker) return;
-                const saved = localStorage.getItem(`sc-color-${id}`);
+                const saved = localStorage.getItem(`clip-color-${id}`);
                 if (saved) {
                     document.documentElement.style.setProperty(`--${id}`, saved);
                     picker.value = saved;
@@ -2764,7 +2764,7 @@
                 picker.addEventListener('input', (e) => {
                     const color = e.target.value;
                     document.documentElement.style.setProperty(`--${id}`, color);
-                    localStorage.setItem(`sc-color-${id}`, color);
+                    localStorage.setItem(`clip-color-${id}`, color);
                     if (id.includes('sc-color')) {
                         updateCircleColors();
                     }
@@ -2774,7 +2774,7 @@
             if (selectionOpacitySlider) {
                 const valLabel = document.getElementById('selection-opacity-val');
                 const updateLabel = (v) => { if (valLabel) valLabel.textContent = Math.round(v * 100); };
-                const saved = localStorage.getItem('sc-selection-opacity');
+                const saved = localStorage.getItem('clip-selection-opacity');
                 if (saved) {
                     selectionOpacitySlider.value = saved;
                     document.documentElement.style.setProperty('--selection-opacity', saved);
@@ -2783,7 +2783,7 @@
                 selectionOpacitySlider.addEventListener('input', (e) => {
                     const val = e.target.value;
                     document.documentElement.style.setProperty('--selection-opacity', val);
-                    localStorage.setItem('sc-selection-opacity', val);
+                    localStorage.setItem('clip-selection-opacity', val);
                     updateLabel(val);
                 });
             }
@@ -2791,7 +2791,7 @@
             if (shortcutOpacitySlider) {
                 const valLabel = document.getElementById('shortcut-opacity-val');
                 const updateLabel = (v) => { if (valLabel) valLabel.textContent = Math.round(v * 100); };
-                const saved = localStorage.getItem('sc-shortcut-opacity');
+                const saved = localStorage.getItem('clip-shortcut-opacity');
                 if (saved) {
                     shortcutOpacitySlider.value = saved;
                     document.documentElement.style.setProperty('--shortcut-opacity', saved);
@@ -2800,38 +2800,38 @@
                 shortcutOpacitySlider.addEventListener('input', (e) => {
                     const val = e.target.value;
                     document.documentElement.style.setProperty('--shortcut-opacity', val);
-                    localStorage.setItem('sc-shortcut-opacity', val);
+                    localStorage.setItem('clip-shortcut-opacity', val);
                     updateLabel(val);
                 });
             }
 
             if (uniformBgCheckbox) {
-                const saved = localStorage.getItem('sc-uniform-selection-bg') === 'true';
+                const saved = localStorage.getItem('clip-uniform-selection-bg') === 'true';
                 uniformBgCheckbox.checked = saved;
                 mainContainer.classList.toggle('uniform-selection-bg', saved);
                 uniformBgCheckbox.addEventListener('change', () => {
                     const isChecked = uniformBgCheckbox.checked;
                     mainContainer.classList.toggle('uniform-selection-bg', isChecked);
-                    localStorage.setItem('sc-uniform-selection-bg', isChecked);
+                    localStorage.setItem('clip-uniform-selection-bg', isChecked);
                 });
             }
 
             if (smartThumbnailSizeCheckbox) {
-                const saved = localStorage.getItem('smartThumbnailSize');
+                const saved = localStorage.getItem('clip-smartThumbnailSize');
                 const smartSizeEnabled = saved === null ? true : saved === 'true';
                 smartThumbnailSizeCheckbox.checked = smartSizeEnabled;
                 smartThumbnailSizeCheckbox.addEventListener('change', () => {
-                    localStorage.setItem('smartThumbnailSize', smartThumbnailSizeCheckbox.checked);
+                    localStorage.setItem('clip-smartThumbnailSize', smartThumbnailSizeCheckbox.checked);
                     layoutLandscapeThumbnails();
                 });
             }
 
             if (hideEditedLoadNewCheckbox) {
-                const saved = localStorage.getItem('hideEditedLoadNew');
+                const saved = localStorage.getItem('clip-hideEditedLoadNew');
                 const hideEditedEnabled = saved === null ? true : saved === 'true';
                 hideEditedLoadNewCheckbox.checked = hideEditedEnabled;
                 hideEditedLoadNewCheckbox.addEventListener('change', () => {
-                    localStorage.setItem('hideEditedLoadNew', hideEditedLoadNewCheckbox.checked);
+                    localStorage.setItem('clip-hideEditedLoadNew', hideEditedLoadNewCheckbox.checked);
                 });
             }
 
@@ -2853,7 +2853,7 @@
                     let count = 0;
                     for (const canvas of canvases.values()) {
                         if (canvas.path !== undefined) {
-                            localStorage.setItem(`proj-size-${canvas.path}`, configStr);
+                            localStorage.setItem(`clip-proj-size-${canvas.path}`, configStr);
                             count++;
                         }
                     }
@@ -2891,29 +2891,29 @@
                     if (selectionOpacitySlider) {
                         selectionOpacitySlider.value = 0.4;
                         document.documentElement.style.setProperty('--selection-opacity', 0.4);
-                        localStorage.setItem('sc-selection-opacity', 0.4);
+                        localStorage.setItem('clip-selection-opacity', 0.4);
                         const lbl = document.getElementById('selection-opacity-val');
                         if (lbl) lbl.textContent = "40";
                     }
                     if (shortcutOpacitySlider) {
                         shortcutOpacitySlider.value = 0.4;
                         document.documentElement.style.setProperty('--shortcut-opacity', 0.4);
-                        localStorage.setItem('sc-shortcut-opacity', 0.4);
+                        localStorage.setItem('clip-shortcut-opacity', 0.4);
                         const lbl = document.getElementById('shortcut-opacity-val');
                         if (lbl) lbl.textContent = "40";
                     }
                     if (uniformBgCheckbox) {
                         uniformBgCheckbox.checked = false;
                         mainContainer.classList.remove('uniform-selection-bg');
-                        localStorage.setItem('sc-uniform-selection-bg', false);
+                        localStorage.setItem('clip-uniform-selection-bg', false);
                     }
                     if (smartThumbnailSizeCheckbox) {
                         smartThumbnailSizeCheckbox.checked = true;
-                        localStorage.setItem('smartThumbnailSize', true);
+                        localStorage.setItem('clip-smartThumbnailSize', true);
                     }
                     if (hideEditedLoadNewCheckbox) {
                         hideEditedLoadNewCheckbox.checked = true;
-                        localStorage.setItem('hideEditedLoadNew', true);
+                        localStorage.setItem('clip-hideEditedLoadNew', true);
                     }
                     Object.keys(defaults).forEach(id => {
                         const color = defaults[id];
@@ -2921,7 +2921,7 @@
                         if (colorPickers[id]) {
                             colorPickers[id].value = color;
                         }
-                        localStorage.removeItem(`sc-color-${id}`);
+                        localStorage.removeItem(`clip-color-${id}`);
                     });
                     updateCircleColors();
                 });
@@ -2930,21 +2930,21 @@
             updateCircleColors();
 
             // Load global preserve original size state
-            const preserveSizeGlobal = localStorage.getItem('preserveOriginalSizeGlobal') === 'true';
+            const preserveSizeGlobal = localStorage.getItem('clip-preserveOriginalSizeGlobal') === 'true';
             if (preserveOriginalSizeGlobalCheckbox) {
                 preserveOriginalSizeGlobalCheckbox.checked = preserveSizeGlobal;
                 preserveOriginalSizeGlobalCheckbox.addEventListener('change', () => {
-                    localStorage.setItem('preserveOriginalSizeGlobal', preserveOriginalSizeGlobalCheckbox.checked);
+                    localStorage.setItem('clip-preserveOriginalSizeGlobal', preserveOriginalSizeGlobalCheckbox.checked);
                 });
             }
 
             // Load panel state
-            const panelEnabled = localStorage.getItem('enableCategoriesPanel') === 'true';
+            const panelEnabled = localStorage.getItem('clip-enableCategoriesPanel') === 'true';
             enableCategoriesPanelCheckbox.checked = panelEnabled;
             if (panelEnabled) {
                 categoriesPanel.style.display = 'block';
                 panelResizer.style.display = 'block';
-                const savedWidth = localStorage.getItem('categoriesPanelWidth');
+                const savedWidth = localStorage.getItem('clip-categoriesPanelWidth');
                 if (savedWidth) categoriesPanel.style.width = savedWidth;
             }
 
@@ -3329,7 +3329,7 @@
                     vSize: vSizeSelector.value,
                     custom: (hSizeSelector.value === 'custom' || vSizeSelector.value === 'custom') ? customSizeInput.value : null
                 };
-                localStorage.setItem(`proj-size-${canvas.path}`, JSON.stringify(config));
+                localStorage.setItem(`clip-proj-size-${canvas.path}`, JSON.stringify(config));
             }
         }
 
@@ -3354,7 +3354,7 @@
 
             // Load saved size for this project
             if (canvas.path !== undefined) {
-                const saved = localStorage.getItem(`proj-size-${canvas.path}`);
+                const saved = localStorage.getItem(`clip-proj-size-${canvas.path}`);
                 if (saved) {
                     const config = JSON.parse(saved);
                     hSizeSelector.value = config.hSize || config.size || "1";
@@ -3630,72 +3630,7 @@
             };
             leftGroup.appendChild(createBtn('H Flip', toggleFlip));
 
-            const moveSelect = document.createElement('select');
-            moveSelect.className = 'move-to-selector';
-            moveSelect.style.marginLeft = '10px';
-            moveSelect.style.height = '28px';
-            moveSelect.style.fontSize = '12px';
 
-            const defaultOpt = document.createElement('option');
-            defaultOpt.value = '';
-            defaultOpt.textContent = 'Move to...';
-            moveSelect.appendChild(defaultOpt);
-
-            moveSelect.addEventListener('mousedown', () => {
-                if (moveSelect.options.length > 1) return;
-                const sortedFolders = [...allProjectFolders].sort((a, b) => {
-                    if (a.isProject !== b.isProject) return a.isProject ? -1 : 1;
-                    return (a.path || "").localeCompare(b.path || "");
-                });
-
-                sortedFolders.forEach(proj => {
-                    const isTopLevel = !proj.path || !proj.path.includes('\\');
-                    if (proj.path !== projectPath && isTopLevel) {
-                        const opt = document.createElement('option');
-                        opt.value = proj.path;
-                        const label = proj.path || proj.name || '(Root)';
-                        opt.textContent = (proj.isProject ? "" : "📁 ") + label;
-                        moveSelect.appendChild(opt);
-                    }
-                });
-            });
-
-            moveSelect.onclick = (e) => e.stopPropagation();
-            moveSelect.onchange = (e) => {
-                const targetPath = e.target.value;
-                let selection = shortcutSelections.get(key);
-                if (!selection) {
-                    selection = { videoName, projectPath, subfolder, projectName, type: '', rotation: "0" };
-                    shortcutSelections.set(key, selection);
-                }
-                selection.targetProject = targetPath;
-                if (targetPath) {
-                    lastUsedMoveTarget = targetPath;
-                    localStorage.setItem("lastUsedMoveTarget", targetPath);
-                    document.querySelectorAll(".quick-move-btn").forEach(btn => btn.disabled = false);
-                }
-                updateRowUI(rowDiv, videoName, projectPath);
-            };
-
-            const quickMoveBtn = document.createElement("button");
-            quickMoveBtn.className = "bar-button row-bar-btn quick-move-btn";
-            quickMoveBtn.textContent = "Move";
-            quickMoveBtn.style.marginLeft = "5px";
-            quickMoveBtn.disabled = !lastUsedMoveTarget;
-
-            quickMoveBtn.onclick = (e) => {
-                e.stopPropagation();
-                if (!lastUsedMoveTarget) return;
-                let selection = shortcutSelections.get(key);
-                if (!selection) {
-                    selection = { videoName, projectPath, subfolder, projectName, type: "", rotation: "0" };
-                    shortcutSelections.set(key, selection);
-                }
-                selection.targetProject = lastUsedMoveTarget;
-                updateRowUI(rowDiv, videoName, projectPath);
-            };
-            leftGroup.appendChild(moveSelect);
-            leftGroup.appendChild(quickMoveBtn);
 
             const editBtn = document.createElement('button');
             editBtn.className = 'bar-button row-bar-btn edit-btn';
@@ -3707,32 +3642,7 @@
             };
             leftGroup.appendChild(editBtn);
 
-            const catBtn = document.createElement('button');
-            catBtn.className = 'bar-button row-bar-btn';
-            catBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>';
-            catBtn.title = 'Categories';
-            catBtn.onclick = (e) => {
-                e.stopPropagation();
-                const oldKey = selectedVideoKey;
-                if (selectedVideoKey === key) {
-                    selectedVideoKey = null;
-                } else {
-                    selectedVideoKey = key;
-                    if (!enableCategoriesPanelCheckbox.checked) {
-                        enableCategoriesPanelCheckbox.checked = true;
-                        enableCategoriesPanelCheckbox.dispatchEvent(new Event('change'));
-                    }
-                }
 
-                if (oldKey) {
-                    const [oldProj, oldVid] = oldKey.split('|');
-                    const oldRow = document.querySelector(`.landscape-row[data-video-name="${oldVid}"][data-project-path="${oldProj}"]`);
-                    if (oldRow) updateRowUI(oldRow, oldVid, oldProj);
-                }
-                updateRowUI(rowDiv, videoName, projectPath);
-                renderCategoriesPanel();
-            };
-            leftGroup.appendChild(catBtn);
 
             if (videoFile) {
                 const infoBtn = document.createElement('button');
@@ -4807,7 +4717,7 @@
                         });
                     }
                 });
-                localStorage.setItem('globalSavedCategories', JSON.stringify(Array.from(globalSavedCategories)));
+                localStorage.setItem('clip-globalSavedCategories', JSON.stringify(Array.from(globalSavedCategories)));
             } catch (e) {}
         }
 
@@ -6150,7 +6060,7 @@
                     rowDiv.dataset.projectPath = project.path;
                     rowDiv.dataset.projectName = project.name;
 
-                    let currentIndex = parseInt(localStorage.getItem(`playlist-thumb-index-${project.path}`)) || 0;
+                    let currentIndex = parseInt(localStorage.getItem(`clip-playlist-thumb-index-${project.path}`)) || 0;
                     if (currentIndex >= candidateVideos.length) currentIndex = 0;
 
                     rowDiv.appendChild(createRowActionBar('Playlist Item', project.path, candidateVideos[currentIndex].subfolder, rowDiv, project.name));
@@ -6238,7 +6148,7 @@
                             img.src = url;
                         });
                         updateRowUI(rowDiv, 'Playlist Item', project.path);
-                        localStorage.setItem(`playlist-thumb-index-${project.path}`, index);
+                        localStorage.setItem(`clip-playlist-thumb-index-${project.path}`, index);
                     };
 
                     await updateDisplayedVideo(currentIndex);
