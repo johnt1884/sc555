@@ -769,6 +769,32 @@
             background-color: rgba(2, 136, 209, 0.2);
             border-left: 3px solid #0288d1;
         }
+        .editor-clips-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            color: #eee;
+            margin-top: 5px;
+        }
+        .editor-clips-table th {
+            text-align: left;
+            padding: 6px;
+            border-bottom: 2px solid #444;
+            color: #ccc;
+            font-weight: bold;
+        }
+        .editor-clips-table td {
+            padding: 6px;
+            border-bottom: 1px solid #333;
+            vertical-align: middle;
+        }
+        .editor-clips-table tr:hover {
+            background-color: rgba(255,255,255,0.05);
+        }
+        .editor-clips-table tr.active-clip {
+            background-color: rgba(2, 136, 209, 0.2);
+            border-left: 3px solid #0288d1;
+        }
         #editor-clipHighlight {
             position: absolute;
             top: 0;
@@ -1806,40 +1832,90 @@
             });
             const usedTags = Array.from(usedTagsSet).sort();
 
+            const table = document.createElement('table');
+            table.className = 'editor-clips-table';
+
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+
+            const thTime = document.createElement('th');
+            thTime.textContent = 'Time Range';
+            const thTags = document.createElement('th');
+            thTags.textContent = 'Current Tags';
+            const thAddTag = document.createElement('th');
+            thAddTag.textContent = 'Add Tag';
+            const thActions = document.createElement('th');
+            thActions.textContent = 'Actions';
+
+            headerRow.appendChild(thTime);
+            headerRow.appendChild(thTags);
+            headerRow.appendChild(thAddTag);
+            headerRow.appendChild(thActions);
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+
             editorCurrentClips.sort((a, b) => a.start - b.start).forEach((clip) => {
-                const item = document.createElement('div');
-                item.className = 'editor-clip-item';
+                const tr = document.createElement('tr');
                 if (editorActiveClipId === clip.id) {
-                    item.classList.add('active-clip');
+                    tr.className = 'active-clip';
                 }
 
-                const timeSpan = document.createElement('span');
-                timeSpan.style.whiteSpace = 'nowrap';
-                timeSpan.textContent = `${editorFmtTime(clip.start)} – ${editorFmtTime(clip.end)}`;
+                // 1. Time range
+                const tdTime = document.createElement('td');
+                tdTime.style.whiteSpace = 'nowrap';
+                tdTime.textContent = `${editorFmtTime(clip.start)} – ${editorFmtTime(clip.end)}`;
 
-                const tagsWrapper = document.createElement('div');
-                tagsWrapper.style.display = 'flex';
-                tagsWrapper.style.alignItems = 'center';
-                tagsWrapper.style.gap = '5px';
-                tagsWrapper.style.flex = '1';
-                tagsWrapper.style.marginLeft = '15px';
+                // 2. Current tags separated by commas
+                const tdTags = document.createElement('td');
+                const tagsSpan = document.createElement('span');
+                tagsSpan.textContent = clip.tags || '';
+                tdTags.appendChild(tagsSpan);
 
-                const tagInput = document.createElement('input');
-                tagInput.type = 'text';
-                tagInput.className = 'clip-tag-input';
-                tagInput.placeholder = 'Tags...';
-                tagInput.value = clip.tags || '';
-                tagInput.style.flex = '1';
-                tagInput.style.height = '24px';
-                tagInput.style.fontSize = '12px';
-                tagInput.style.background = '#333';
-                tagInput.style.color = '#fff';
-                tagInput.style.border = '1px solid #555';
-                tagInput.style.padding = '0 4px';
-                tagInput.onchange = (e) => {
-                    clip.tags = e.target.value;
+                // 3. Add Tag controls
+                const tdAddTag = document.createElement('td');
+                const controlsWrapper = document.createElement('div');
+                controlsWrapper.style.display = 'flex';
+                controlsWrapper.style.alignItems = 'center';
+                controlsWrapper.style.gap = '5px';
+
+                const newTagInput = document.createElement('input');
+                newTagInput.type = 'text';
+                newTagInput.placeholder = 'New tag...';
+                newTagInput.style.width = '100px';
+                newTagInput.style.height = '24px';
+                newTagInput.style.fontSize = '12px';
+                newTagInput.style.background = '#333';
+                newTagInput.style.color = '#fff';
+                newTagInput.style.border = '1px solid #555';
+                newTagInput.style.padding = '0 4px';
+                newTagInput.style.borderRadius = '3px';
+                newTagInput.onclick = (e) => e.stopPropagation();
+
+                const plusBtn = document.createElement('button');
+                plusBtn.textContent = '+';
+                plusBtn.style.height = '24px';
+                plusBtn.style.padding = '0 8px';
+                plusBtn.style.background = '#444';
+                plusBtn.style.color = '#fff';
+                plusBtn.style.border = '1px solid #555';
+                plusBtn.style.borderRadius = '3px';
+                plusBtn.style.cursor = 'pointer';
+                plusBtn.style.fontSize = '12px';
+                plusBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const val = newTagInput.value.trim();
+                    if (val) {
+                        const existingTags = clip.tags ? clip.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+                        if (!existingTags.includes(val)) {
+                            existingTags.push(val);
+                            clip.tags = existingTags.join(', ');
+                            editorRenderClipsList();
+                        }
+                        newTagInput.value = '';
+                    }
                 };
-                tagInput.onclick = (e) => e.stopPropagation();
 
                 const tagSelect = document.createElement('select');
                 tagSelect.style.height = '24px';
@@ -1847,12 +1923,12 @@
                 tagSelect.style.background = '#333';
                 tagSelect.style.color = '#fff';
                 tagSelect.style.border = '1px solid #555';
-                tagSelect.style.width = '100px';
+                tagSelect.style.borderRadius = '3px';
                 tagSelect.onclick = (e) => e.stopPropagation();
 
                 const defaultOpt = document.createElement('option');
                 defaultOpt.value = '';
-                defaultOpt.textContent = 'Add Tag...';
+                defaultOpt.textContent = 'Session Tags...';
                 tagSelect.appendChild(defaultOpt);
 
                 usedTags.forEach(tag => {
@@ -1865,20 +1941,23 @@
                 tagSelect.onchange = (e) => {
                     const val = e.target.value;
                     if (val) {
-                        const currentVal = tagInput.value.trim();
-                        const existingTags = currentVal ? currentVal.split(',').map(t => t.trim()) : [];
+                        const existingTags = clip.tags ? clip.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
                         if (!existingTags.includes(val)) {
                             existingTags.push(val);
-                            tagInput.value = existingTags.join(', ');
-                            clip.tags = tagInput.value;
+                            clip.tags = existingTags.join(', ');
+                            editorRenderClipsList();
                         }
                         tagSelect.value = '';
                     }
                 };
 
-                tagsWrapper.appendChild(tagInput);
-                tagsWrapper.appendChild(tagSelect);
+                controlsWrapper.appendChild(newTagInput);
+                controlsWrapper.appendChild(plusBtn);
+                controlsWrapper.appendChild(tagSelect);
+                tdAddTag.appendChild(controlsWrapper);
 
+                // 4. Actions
+                const tdActions = document.createElement('td');
                 const actionsWrapper = document.createElement('div');
                 actionsWrapper.style.display = 'flex';
                 actionsWrapper.style.gap = '8px';
@@ -1916,12 +1995,18 @@
 
                 actionsWrapper.appendChild(playBtn);
                 actionsWrapper.appendChild(delBtn);
+                tdActions.appendChild(actionsWrapper);
 
-                item.appendChild(timeSpan);
-                item.appendChild(tagsWrapper);
-                item.appendChild(actionsWrapper);
+                tr.appendChild(tdTime);
+                tr.appendChild(tdTags);
+                tr.appendChild(tdAddTag);
+                tr.appendChild(tdActions);
 
-                item.onclick = (e) => {
+                tr.onclick = (e) => {
+                    // Prevent click on inputs, selects, buttons from triggering row seek
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON' || e.target.classList.contains('editor-delete-cut-btn')) {
+                        return;
+                    }
                     editorActiveClipId = clip.id;
                     editorMainVideo.currentTime = clip.start;
                     editorUpdateUI();
@@ -1937,8 +2022,11 @@
                     }
                 };
 
-                editorClipsListContainer.appendChild(item);
+                tbody.appendChild(tr);
             });
+
+            table.appendChild(tbody);
+            editorClipsListContainer.appendChild(table);
         }
 
         function editorRenderCutsList() {
@@ -3729,10 +3817,7 @@
                 if (wrapper) wrapper.classList.remove(...selectionClasses);
 
                 t.classList.remove('rotate-90', 'rotate-180', 'rotate-270');
-                if (type) {
-                    t.classList.add('selected-' + type);
-                    if (wrapper) wrapper.classList.add('selected-' + type);
-                }
+                // Disabled shortcut selection indicators in clips tool
                 if (visualRotationStr !== "0") {
                     t.classList.add('rotate-' + visualRotationStr);
                 }
@@ -4361,7 +4446,15 @@
                 if (hasCatChanges) break;
             }
 
-            return hasNewSelections || hasDeletions || hasModifiedType || hasDummyTimestamp || hasEditsGlobal || hasMoves || hasCatChanges;
+            const hasClipsChanged = selectionsToProcess.some(sel => {
+                const key = sel.projectPath + '|' + sel.videoName;
+                const initial = initialShortcutSelections.get(key);
+                const initialClipsStr = initial ? (initial.clips || '[]') : '[]';
+                const currentClipsStr = JSON.stringify(sel.clips || []);
+                return initialClipsStr !== currentClipsStr;
+            });
+
+            return hasNewSelections || hasDeletions || hasModifiedType || hasDummyTimestamp || hasEditsGlobal || hasMoves || hasCatChanges || hasClipsChanged;
         }
 
         function renderActionSummary(actions) {
@@ -5523,14 +5616,6 @@
             } else if (g_rootHandle) {
                 // already have root handle
                 rootScData = await getRootScData(g_rootHandle);
-            } else if (!isNewOnly && (isProject || projectFolders.length > 0)) {
-                if (confirm("Would you like to select the root folder to enable root shortcut detection?")) {
-                    try {
-                        const rootHandle = await pickerFallback.showDirectoryPicker();
-                        g_rootHandle = rootHandle;
-                        rootScData = await getRootScData(g_rootHandle);
-                    } catch (e) {}
-                }
             }
 
             if (projectFolders.length === 0) {
@@ -6021,7 +6106,8 @@
                             if (!initialShortcutSelections.has(key)) {
                                 initialShortcutSelections.set(key, {
                                     type: initialShortcutType, rotation: rotation, flipped: flipped,
-                                    subfolder: videoFile.subfolder, projectPath: project.path, projectName: project.name
+                                    subfolder: videoFile.subfolder, projectPath: project.path, projectName: project.name,
+                                    clips: JSON.stringify(selectionData.clips || [])
                                 });
                             }
                         }
@@ -6035,10 +6121,7 @@
                             const img = new Image();
                             img.className = 'thumbnail';
                             img.dataset.fileName = file.name;
-                            if (initialShortcutType && currentMode !== 'playlist-root' && currentMode !== 'update-playlist-root') {
-                                img.classList.add('selected-' + initialShortcutType);
-                                wrapper.classList.add('selected-' + initialShortcutType);
-                            }
+                            // Disabled shortcut selection indicators in clips tool
                             if (rotation !== "0") img.classList.add('rotate-' + rotation);
                             if (flipped) img.classList.add('flipped');
                             wrapper.appendChild(img);
@@ -6211,7 +6294,8 @@
                                     });
                                     initialShortcutSelections.set(key, {
                                         type: 'subfolder-sc', rotation: rotation, flipped: flipped,
-                                        subfolder: '', projectPath: subfolderName, projectName: subfolderName
+                                        subfolder: '', projectPath: subfolderName, projectName: subfolderName,
+                                        clips: '[]'
                                     });
                                 }
                             }
@@ -6254,10 +6338,7 @@
                                 img.dataset.fileName = file.name;
                                 const key = subfolderName + '|' + realVideoName;
                                 const selection = shortcutSelections.get(key);
-                                if (selection && selection.type) {
-                                    img.classList.add('selected-' + selection.type);
-                                    wrapper.classList.add('selected-' + selection.type);
-                                }
+                                // Disabled shortcut selection indicators in clips tool
                                 if (rotation !== "0") {
                                     img.classList.add('rotate-' + rotation);
                                 }
@@ -6331,14 +6412,7 @@
             createdObjectUrls.forEach(URL.revokeObjectURL);
             createdObjectUrls = [];
 
-            if (!g_rootHandle) {
-                if (confirm("Would you like to select the root folder to enable root shortcut detection?")) {
-                    try {
-                        const rootHandle = await pickerFallback.showDirectoryPicker();
-                        g_rootHandle = rootHandle;
-                    } catch (e) {}
-                }
-            }
+            // Bypassed root folder detection
 
             let rootScData = new Map();
             if (g_rootHandle) {
@@ -6602,14 +6676,8 @@
                         thumbnailFiles.forEach(file => {
                             const wrapper = document.createElement('div');
                             wrapper.className = 'thumbnail-wrapper';
-                            if (selection && selection.type) {
-                                wrapper.classList.add('selected-' + selection.type);
-                            }
                             const img = new Image();
                             img.className = 'thumbnail';
-                            if (selection && selection.type) {
-                                img.classList.add('selected-' + selection.type);
-                            }
                             img.dataset.projectPath = project.path;
                             wrapper.appendChild(img);
                             thumbnailsContainer.appendChild(wrapper);
