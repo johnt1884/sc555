@@ -3201,7 +3201,7 @@
                 }
             });
 
-            loadScButton.addEventListener('click', async () => {
+            if (loadScButton) loadScButton.addEventListener('click', async () => {
                 try {
                     const dirHandle = await pickerFallback.showDirectoryPicker();
                     currentDirHandle = dirHandle;
@@ -3216,7 +3216,7 @@
                 }
             });
 
-            updatePlaylistRootLoadBtn.addEventListener('click', async () => {
+            if (updatePlaylistRootLoadBtn) updatePlaylistRootLoadBtn.addEventListener('click', async () => {
                 try {
                     const [fileHandle] = await pickerFallback.showOpenFilePicker({
                         types: [{
@@ -3353,7 +3353,7 @@
                 }
             });
 
-            loadRootScButton.addEventListener('click', async () => {
+            if (loadRootScButton) loadRootScButton.addEventListener('click', async () => {
                 try {
                     const dirHandle = await pickerFallback.showDirectoryPicker();
                     currentDirHandle = dirHandle;
@@ -3368,7 +3368,7 @@
                 }
             });
 
-            createPlaylistLoadBtn.addEventListener('click', async () => {
+            if (createPlaylistLoadBtn) createPlaylistLoadBtn.addEventListener('click', async () => {
                 try {
                     const dirHandle = await pickerFallback.showDirectoryPicker();
                     currentDirHandle = dirHandle;
@@ -3383,7 +3383,7 @@
                 }
             });
 
-            createPlaylistRootLoadBtn.addEventListener('click', async () => {
+            if (createPlaylistRootLoadBtn) createPlaylistRootLoadBtn.addEventListener('click', async () => {
                 try {
                     const dirHandle = await pickerFallback.showDirectoryPicker();
                     currentDirHandle = dirHandle;
@@ -3398,7 +3398,7 @@
                 }
             });
 
-            createPlaylistBtn.addEventListener('click', () => {
+            if (createPlaylistBtn) createPlaylistBtn.addEventListener('click', () => {
                 if (shortcutSelections.size === 0) {
                     alert('Please select one or more items to include in the playlist.');
                     return;
@@ -3426,7 +3426,7 @@
             closeVideoModal.addEventListener('click', closeModal);
             player.addEventListener('click', closeModal);
 
-            deleteShortcutsBtn.addEventListener('click', () => {
+            if (deleteShortcutsBtn) deleteShortcutsBtn.addEventListener('click', () => {
                 if (!hasChanges()) {
                     alert('No changes to save.');
                     return;
@@ -3435,9 +3435,9 @@
                 scriptModal.style.display = 'block';
             });
 
-            if (rootScBtn) rootScBtn.addEventListener('click', () => setSelectionType('root-sc'));
-            if (subfolderScBtn) subfolderScBtn.addEventListener('click', () => setSelectionType('subfolder-sc'));
-            if (bothScBtn) bothScBtn.addEventListener('click', () => setSelectionType('both-sc'));
+            if (rootScBtn) if (rootScBtn) rootScBtn.addEventListener('click', () => setSelectionType('root-sc'));
+            if (subfolderScBtn) if (subfolderScBtn) subfolderScBtn.addEventListener('click', () => setSelectionType('subfolder-sc'));
+            if (bothScBtn) if (bothScBtn) bothScBtn.addEventListener('click', () => setSelectionType('both-sc'));
 
             prevCanvasBtn.addEventListener('click', () => navigateCanvas(-1));
             nextCanvasBtn.addEventListener('click', () => navigateCanvas(1));
@@ -4776,7 +4776,6 @@
                     if (clipsMatch) {
                         dataParts.push(`clips:${clipsMatch[1]}`);
                     }
-                    const loadedData = editModeRotatedVideos.get(key);
                     if (loadedData.includes('edit_rotated:true') || loadedData.includes('edit_rotated=true')) dataParts.push('edit_rotated:true');
                     if (loadedData.includes('has_cuts:true') || loadedData.includes('has_cuts=true')) dataParts.push('has_cuts:true');
                     const cropMatch = loadedData.match(/crop:([^,|]+)/) || loadedData.match(/crop=([^,|]+)/);
