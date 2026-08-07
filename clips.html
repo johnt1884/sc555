@@ -750,6 +750,35 @@
         .editor-delete-cut-btn { cursor: pointer; color: #ff5252; font-weight: bold; }
         .editor-greenBtn { background: #43a047; border: 2px solid #2e7d32; color: #fff; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
         .red-rotation-icon { color: red; margin-right: 5px; font-weight: bold; }
+
+        .editor-clip-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px;
+            border-bottom: 1px solid #333;
+            color: #eee;
+            gap: 10px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .editor-clip-item:hover {
+            background-color: rgba(255,255,255,0.05);
+        }
+        .editor-clip-item.active-clip {
+            background-color: rgba(2, 136, 209, 0.2);
+            border-left: 3px solid #0288d1;
+        }
+        #editor-clipHighlight {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            background: rgba(2, 136, 209, 0.4);
+            border-left: 2px solid #0288d1;
+            border-right: 2px solid #0288d1;
+            pointer-events: none;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -973,6 +1002,7 @@
                     </div>
                     <div id="editor-timelineWrap">
                         <div id="editor-timeline">
+                            <div id="editor-clipHighlight"></div>
                             <div id="editor-progress"></div>
                             <div id="editor-scrubber"></div>
                         </div>
@@ -995,6 +1025,7 @@
                             <button id="editor-markEndBtn" class="bar-button" style="border-color:#43a047">Mark End</button>
                             <button id="editor-flipBtn" class="bar-button">Flip H</button>
                             <button id="editor-cutSegmentBtn" class="bar-button" style="background:#d32f2f;color:white" disabled>Cut Segment</button>
+                            <button id="editor-createClipBtn" class="bar-button" style="background:#0288d1;color:white" disabled>Create Clip</button>
                             <button id="editor-cropBtn" class="bar-button" style="border-color:#43a047">Crop</button>
                             <button id="editor-deleteEditThumbsBtn" class="bar-button" style="border-color:#f44336">Delete Thumbnails</button>
                             <button id="editor-preserveSizeBtn" class="bar-button" style="border-color:#009dff">Preserve Size</button>
@@ -1007,6 +1038,10 @@
                         </div>
                     </div>
                     <div id="editor-cutsListContainer"></div>
+                    <div id="editor-clipsHeaderContainer" style="display:none; margin-top:15px; border-top:1px solid #444; padding-top:10px;">
+                        <h3 style="color:#eee; font-size:14px; margin:0 0 5px 0;">Clips</h3>
+                        <div id="editor-clipsListContainer"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1098,6 +1133,8 @@
         const editorMarkEndBtn = document.getElementById('editor-markEndBtn');
         const editorCutSegmentBtn = document.getElementById('editor-cutSegmentBtn');
         const editorCutsListContainer = document.getElementById('editor-cutsListContainer');
+        const editorCreateClipBtn = document.getElementById('editor-createClipBtn');
+        const editorClipsListContainer = document.getElementById('editor-clipsListContainer');
         const editorCommitBtn = document.getElementById('editor-commitBtn');
         const editorFrameBackBtn = document.getElementById('editor-frameBackBtn');
         const editorFrameForwardBtn = document.getElementById('editor-frameForwardBtn');
@@ -1165,6 +1202,9 @@
         let currentVideoUrl = null;
         let editorCurrentVideo = null;
         let editorCurrentCuts = [];
+        let editorCurrentClips = [];
+        let editorActivePlaybackClip = null;
+        let editorActiveClipId = null;
         let editorPendingCutStart = null;
         let editorPendingCutEnd = null;
         let editorMarkers = [];
@@ -1715,6 +1755,13 @@
                 editorMediaStartTime = null;
                 editorMediaFrameCount = 0;
             }
+            if (editorActivePlaybackClip) {
+                if (currentTime >= editorActivePlaybackClip.end) {
+                    editorMainVideo.pause();
+                    if (editorPlayPauseBtn) editorPlayPauseBtn.textContent = '▶️ Play';
+                    editorActivePlaybackClip = null;
+                }
+            }
             if (!editorScrubbingMouseDown) {
                 const p = (currentTime / editorMainVideo.duration) * 100;
                 editorProgress.style.width = p + '%';
@@ -1729,6 +1776,171 @@
             editorVideoOverlay.style.display = isCut ? 'block' : 'none';
             editorMainVideo.requestVideoFrameCallback(editorRenderLoop);
         }
+        function editorRenderClipsList() {
+            editorClipsListContainer.innerHTML = '';
+            const clipsHeader = document.getElementById('editor-clipsHeaderContainer');
+            if (!editorCurrentClips || editorCurrentClips.length === 0) {
+                if (clipsHeader) clipsHeader.style.display = 'none';
+                return;
+            }
+            if (clipsHeader) clipsHeader.style.display = 'block';
+
+            const usedTagsSet = new Set();
+            shortcutSelections.forEach(sel => {
+                if (sel.clips) {
+                    sel.clips.forEach(c => {
+                        if (c.tags) {
+                            c.tags.split(',').map(t => t.trim()).forEach(t => {
+                                if (t) usedTagsSet.add(t);
+                            });
+                        }
+                    });
+                }
+            });
+            editorCurrentClips.forEach(c => {
+                if (c.tags) {
+                    c.tags.split(',').map(t => t.trim()).forEach(t => {
+                        if (t) usedTagsSet.add(t);
+                    });
+                }
+            });
+            const usedTags = Array.from(usedTagsSet).sort();
+
+            editorCurrentClips.sort((a, b) => a.start - b.start).forEach((clip) => {
+                const item = document.createElement('div');
+                item.className = 'editor-clip-item';
+                if (editorActiveClipId === clip.id) {
+                    item.classList.add('active-clip');
+                }
+
+                const timeSpan = document.createElement('span');
+                timeSpan.style.whiteSpace = 'nowrap';
+                timeSpan.textContent = `${editorFmtTime(clip.start)} – ${editorFmtTime(clip.end)}`;
+
+                const tagsWrapper = document.createElement('div');
+                tagsWrapper.style.display = 'flex';
+                tagsWrapper.style.alignItems = 'center';
+                tagsWrapper.style.gap = '5px';
+                tagsWrapper.style.flex = '1';
+                tagsWrapper.style.marginLeft = '15px';
+
+                const tagInput = document.createElement('input');
+                tagInput.type = 'text';
+                tagInput.className = 'clip-tag-input';
+                tagInput.placeholder = 'Tags...';
+                tagInput.value = clip.tags || '';
+                tagInput.style.flex = '1';
+                tagInput.style.height = '24px';
+                tagInput.style.fontSize = '12px';
+                tagInput.style.background = '#333';
+                tagInput.style.color = '#fff';
+                tagInput.style.border = '1px solid #555';
+                tagInput.style.padding = '0 4px';
+                tagInput.onchange = (e) => {
+                    clip.tags = e.target.value;
+                };
+                tagInput.onclick = (e) => e.stopPropagation();
+
+                const tagSelect = document.createElement('select');
+                tagSelect.style.height = '24px';
+                tagSelect.style.fontSize = '12px';
+                tagSelect.style.background = '#333';
+                tagSelect.style.color = '#fff';
+                tagSelect.style.border = '1px solid #555';
+                tagSelect.style.width = '100px';
+                tagSelect.onclick = (e) => e.stopPropagation();
+
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '';
+                defaultOpt.textContent = 'Add Tag...';
+                tagSelect.appendChild(defaultOpt);
+
+                usedTags.forEach(tag => {
+                    const opt = document.createElement('option');
+                    opt.value = tag;
+                    opt.textContent = tag;
+                    tagSelect.appendChild(opt);
+                });
+
+                tagSelect.onchange = (e) => {
+                    const val = e.target.value;
+                    if (val) {
+                        const currentVal = tagInput.value.trim();
+                        const existingTags = currentVal ? currentVal.split(',').map(t => t.trim()) : [];
+                        if (!existingTags.includes(val)) {
+                            existingTags.push(val);
+                            tagInput.value = existingTags.join(', ');
+                            clip.tags = tagInput.value;
+                        }
+                        tagSelect.value = '';
+                    }
+                };
+
+                tagsWrapper.appendChild(tagInput);
+                tagsWrapper.appendChild(tagSelect);
+
+                const actionsWrapper = document.createElement('div');
+                actionsWrapper.style.display = 'flex';
+                actionsWrapper.style.gap = '8px';
+                actionsWrapper.style.alignItems = 'center';
+
+                const playBtn = document.createElement('button');
+                playBtn.className = 'bar-button';
+                playBtn.style.padding = '2px 8px';
+                playBtn.style.fontSize = '12px';
+                playBtn.textContent = 'Play';
+                playBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    editorActivePlaybackClip = clip;
+                    editorMainVideo.currentTime = clip.start;
+                    editorMainVideo.play();
+                    editorPlayPauseBtn.textContent = '⏸ Pause';
+                };
+
+                const delBtn = document.createElement('span');
+                delBtn.className = 'editor-delete-cut-btn';
+                delBtn.textContent = '❌';
+                delBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const clipIndex = editorCurrentClips.findIndex(c => c.id === clip.id);
+                    if (clipIndex !== -1) {
+                        editorCurrentClips.splice(clipIndex, 1);
+                        if (editorActiveClipId === clip.id) {
+                            editorActiveClipId = null;
+                            const highlight = document.getElementById('editor-clipHighlight');
+                            if (highlight) highlight.style.display = 'none';
+                        }
+                        editorUpdateUI();
+                    }
+                };
+
+                actionsWrapper.appendChild(playBtn);
+                actionsWrapper.appendChild(delBtn);
+
+                item.appendChild(timeSpan);
+                item.appendChild(tagsWrapper);
+                item.appendChild(actionsWrapper);
+
+                item.onclick = (e) => {
+                    editorActiveClipId = clip.id;
+                    editorMainVideo.currentTime = clip.start;
+                    editorUpdateUI();
+
+                    const duration = editorMainVideo.duration;
+                    const highlight = document.getElementById('editor-clipHighlight');
+                    if (highlight && duration) {
+                        const startPct = (clip.start / duration) * 100;
+                        const endPct = (clip.end / duration) * 100;
+                        highlight.style.left = startPct + '%';
+                        highlight.style.width = (endPct - startPct) + '%';
+                        highlight.style.display = 'block';
+                    }
+                };
+
+                editorClipsListContainer.appendChild(item);
+            });
+        }
+
         function editorRenderCutsList() {
             editorCutsListContainer.innerHTML = '';
             if (editorCurrentCuts.length === 0) {
@@ -1759,7 +1971,10 @@
         }
         function editorUpdateUI() {
             editorRenderCutsList();
-            editorCutSegmentBtn.disabled = !(editorPendingCutStart !== null && editorPendingCutEnd !== null);
+            editorRenderClipsList();
+            const hasMark = (editorPendingCutStart !== null && editorPendingCutEnd !== null);
+            editorCutSegmentBtn.disabled = !hasMark;
+            if (editorCreateClipBtn) editorCreateClipBtn.disabled = !hasMark;
             editorRenderMarkers();
         }
         function editorScrubToPosition(clientX) {
@@ -2317,6 +2532,11 @@
 
             // Load existing state or start with blank slate
             editorCurrentCuts = (selection && selection.cuts) ? JSON.parse(JSON.stringify(selection.cuts)) : [];
+            editorCurrentClips = (selection && selection.clips) ? JSON.parse(JSON.stringify(selection.clips)) : [];
+            editorActivePlaybackClip = null;
+            editorActiveClipId = null;
+            const highlight = document.getElementById('editor-clipHighlight');
+            if (highlight) highlight.style.display = 'none';
             editorMarkers = (selection && selection.markers) ? JSON.parse(JSON.stringify(selection.markers)) : [];
 
             // If after using the main page buttons (which clear markers), the slate should be cleared in the editor.
@@ -2566,6 +2786,25 @@
                 editorMainVideo.requestVideoFrameCallback(editorRenderLoop);
             };
 
+            if (editorCreateClipBtn) {
+                editorCreateClipBtn.onclick = () => {
+                    if (editorPendingCutStart !== null && editorPendingCutEnd !== null) {
+                        const start = editorPendingCutStart;
+                        const end = editorPendingCutEnd;
+                        const newClip = {
+                            id: Date.now() + Math.random().toString(36).substr(2, 9),
+                            start: start,
+                            end: end,
+                            tags: ""
+                        };
+                        editorCurrentClips.push(newClip);
+                        editorPendingCutStart = null;
+                        editorPendingCutEnd = null;
+                        editorUpdateUI();
+                    }
+                };
+            }
+
             editorCommitBtn.onclick = () => {
                 const key = editorCurrentVideo.projectPath + '|' + editorCurrentVideo.videoName;
                 const initial = initialShortcutSelections.get(key);
@@ -2622,6 +2861,7 @@
                 }
 
                 selection.cuts = JSON.parse(JSON.stringify(editorCurrentCuts));
+                selection.clips = JSON.parse(JSON.stringify(editorCurrentClips));
                 selection.markers = uniqueMarkers;
                 selection.editRotation = finalEditRotation;
                 selection.editRotationType = editRotationType;
@@ -4265,6 +4505,44 @@
                 });
             }
 
+            // --- Creating Clips ---
+            const clipsToCreate = selectionsToProcess.filter(sel => sel.clips && sel.clips.length > 0);
+            if (clipsToCreate.length > 0) {
+                scriptLines.push('# --- Creating Video Clips ---');
+                clipsToCreate.forEach(sel => {
+                    const projRes = getPSPathRes('$BaseDir', sel.projectPath, sel.projectName, '');
+                    const subfolderRes = getPSPathRes('$BaseDir', sel.projectPath, sel.projectName, sel.subfolder);
+                    const escapedVideoName = escapePSString(sel.videoName);
+                    scriptLines.push(`    # Processing clips for: ${sel.projectPath}\\${sel.videoName}`);
+                    scriptLines.push(`    $projectFolder = ${projRes}`);
+                    scriptLines.push(`    $clipsDir = Join-Path -Path $projectFolder -ChildPath 'clips'`);
+                    scriptLines.push(`    if (-not (Test-Path -LiteralPath $clipsDir)) { [System.IO.Directory]::CreateDirectory($clipsDir) | Out-Null }`);
+                    scriptLines.push(`    $sourceVideoPath = (Join-Path -Path (${subfolderRes}) -ChildPath '${escapedVideoName}')`);
+
+                    const videoBaseName = sel.videoName.substring(0, sel.videoName.lastIndexOf('.'));
+                    const videoExt = sel.videoName.substring(sel.videoName.lastIndexOf('.') + 1);
+
+                    sel.clips.forEach((c, idx) => {
+                        const cleanTags = (c.tags || "").replace(/[^a-zA-Z0-9]/g, "_").replace(/_+/g, "_").trim().replace(/^_|_$/g, "");
+                        const tagSuffix = cleanTags ? `_${cleanTags}` : '';
+                        const clipFileName = `${escapePSString(videoBaseName)}_clip_${idx + 1}${tagSuffix}.${videoExt}`;
+
+                        scriptLines.push(`    # Clip ${idx + 1}: ${c.start}s to ${c.end}s (Tags: ${c.tags || 'none'})`);
+                        scriptLines.push(`    $clipPath = Join-Path -Path $clipsDir -ChildPath '${clipFileName}'`);
+                        scriptLines.push(`    $cuts = @( @{ start = ${c.start.toFixed(6)}; end = ${c.end.toFixed(6)} } )`);
+
+                        const isFlipped = sel.editFlipped ? '$true' : '$false';
+                        const cropArg = sel.crop ? `'${escapePSString(sel.crop)}'` : '$null';
+                        const effectivePreserveSize = (sel.preserveOriginalSize !== undefined && sel.preserveOriginalSize !== null) ? sel.preserveOriginalSize : preserveOriginalSizeGlobalCheckbox.checked;
+                        const preserveSizeArg = effectivePreserveSize ? '$true' : '$false';
+
+                        scriptLines.push(`    Process-Video -sourcePath $sourceVideoPath -targetPath $clipPath -cuts $cuts -markers @() -flipped ${isFlipped} -crop ${cropArg} -preserveOriginalSize ${preserveSizeArg}`);
+                        summaryActions.edits.push(`Clip ${idx + 1} from ${sel.videoName} -> clips/${clipFileName}`);
+                    });
+                    scriptLines.push('');
+                });
+            }
+
             // Video processing (cuts, crop, rotations, flips)
             selectionsToProcess.forEach(sel => {
                 const key = sel.projectPath + '|' + sel.videoName;
@@ -4458,7 +4736,11 @@
             const allMiscVideos = new Set();
             videoCategories.forEach((cats, key) => { if (cats.size > 0) allMiscVideos.add(key); });
             editModeRotatedVideos.forEach((val, key) => { if (val) allMiscVideos.add(key); });
-            shortcutSelections.forEach((sel, key) => { if (sel.editModeRotated) allMiscVideos.add(key); });
+            shortcutSelections.forEach((sel, key) => {
+                if (sel.editModeRotated || (sel.clips && sel.clips.length > 0)) {
+                    allMiscVideos.add(key);
+                }
+            });
 
             allMiscVideos.forEach(key => {
                 const [projectPath, videoName] = key.split('|');
@@ -4485,7 +4767,15 @@
                         dataParts.push(`preserve_size:${sel.preserveOriginalSize}`);
                     }
                     if (sel.backupOriginal) dataParts.push('backup_original:true');
+                    if (sel.clips && sel.clips.length > 0) {
+                        dataParts.push(`clips:${sel.clips.map(c => `${c.start}::${c.end}::${c.tags || ''}`).join(';')}`);
+                    }
                 } else if (hasLoadedEdit) {
+                    const loadedData = editModeRotatedVideos.get(key);
+                    const clipsMatch = loadedData.match(/clips:([^|]+)/);
+                    if (clipsMatch) {
+                        dataParts.push(`clips:${clipsMatch[1]}`);
+                    }
                     const loadedData = editModeRotatedVideos.get(key);
                     if (loadedData.includes('edit_rotated:true') || loadedData.includes('edit_rotated=true')) dataParts.push('edit_rotated:true');
                     if (loadedData.includes('has_cuts:true') || loadedData.includes('has_cuts=true')) dataParts.push('has_cuts:true');
@@ -4701,6 +4991,19 @@
                                 }
                 if (part.startsWith('crop:')) {
                     sel.crop = part.substring(5);
+                }
+                if (part.startsWith('clips:')) {
+                    const clipsStr = part.substring(6);
+                    const clipParts = clipsStr.split(';').filter(p => p.trim());
+                    sel.clips = clipParts.map(cp => {
+                        const subParts = cp.split('::');
+                        return {
+                            id: Date.now() + Math.random().toString(36).substr(2, 9),
+                            start: parseFloat(subParts[0]) || 0,
+                            end: parseFloat(subParts[1]) || 0,
+                            tags: subParts[2] || ""
+                        };
+                    });
                 }
                 if (part.startsWith('preserve_size:')) {
                     sel.preserveOriginalSize = (part.substring(14).trim() === 'true');
