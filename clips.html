@@ -4784,14 +4784,48 @@
             const clipsToCreate = selectionsToProcess.filter(sel => sel.clips && sel.clips.length > 0);
             if (clipsToCreate.length > 0) {
                 scriptLines.push('# --- Creating Video Clips ---');
+
+                // Group clips by project path to update clips/clips.txt per project
+                const clipsByProject = new Map();
                 clipsToCreate.forEach(sel => {
-                    const projRes = getPSPathRes('$BaseDir', sel.projectPath, sel.projectName, '');
-                    const subfolderRes = getPSPathRes('$BaseDir', sel.projectPath, sel.projectName, sel.subfolder);
-                    const escapedVideoName = escapePSString(sel.videoName);
-                    scriptLines.push(`    # Processing clips for: ${sel.projectPath}\\${sel.videoName}`);
+                    if (!clipsByProject.has(sel.projectPath)) clipsByProject.set(sel.projectPath, []);
+                    clipsByProject.get(sel.projectPath).push(sel);
+                });
+
+                clipsByProject.forEach((videoSels, projectPath) => {
+                    const projRes = getPSPathRes('$BaseDir', projectPath, videoSels[0].projectName, '');
                     scriptLines.push(`    $projectFolder = ${projRes}`);
                     scriptLines.push(`    $clipsDir = Join-Path -Path $projectFolder -ChildPath 'clips'`);
                     scriptLines.push(`    if (-not (Test-Path -LiteralPath $clipsDir)) { [System.IO.Directory]::CreateDirectory($clipsDir) | Out-Null }`);
+                    scriptLines.push(`    $clipsTxtPath = Join-Path -Path $clipsDir -ChildPath 'clips.txt'`);
+                    scriptLines.push(`    $clipsData = @{}`);
+                    scriptLines.push(`    if (Test-Path -LiteralPath $clipsTxtPath) {`);
+                    scriptLines.push(`        Get-Content -LiteralPath $clipsTxtPath | ForEach-Object {`);
+                    scriptLines.push(`            $commaIdx = $_.IndexOf(',')`);
+                    scriptLines.push(`            if ($commaIdx -ne -1) {`);
+                    scriptLines.push(`                $vName = $_.Substring(0, $commaIdx).Trim().ToLower()`);
+                    scriptLines.push(`                $clipsData[$vName] = $_.Trim()`);
+                    scriptLines.push(`            }`);
+                    scriptLines.push(`        }`);
+                    scriptLines.push(`    }`);
+
+                    videoSels.forEach(sel => {
+                        const serializedClips = sel.clips.map(c => `${c.start}::${c.end}::${escapePSString(c.tags || '')}`).join(';');
+                        scriptLines.push(`    $clipsData['${escapePSString(sel.videoName.toLowerCase())}'] = '${escapePSString(sel.videoName)},clips:${serializedClips}'`);
+                    });
+
+                    scriptLines.push(`    $newClipsContent = $clipsData.Values | Sort-Object`);
+                    scriptLines.push(`    $newClipsContent | Set-Content -LiteralPath $clipsTxtPath -Encoding utf8`);
+                    scriptLines.push(`    Write-Host "Updated clips.txt in: $clipsDir"`);
+                    scriptLines.push('');
+                });
+
+                clipsToCreate.forEach(sel => {
+                    const subfolderRes = getPSPathRes('$BaseDir', sel.projectPath, sel.projectName, sel.subfolder);
+                    const escapedVideoName = escapePSString(sel.videoName);
+                    scriptLines.push(`    # Processing clips for: ${sel.projectPath}\\${sel.videoName}`);
+                    scriptLines.push(`    $projectFolder = $(Get-Item -LiteralPath (Join-Path -Path $BaseDir -ChildPath '${escapePSString(sel.projectPath)}'))`);
+                    scriptLines.push(`    $clipsDir = Join-Path -Path $projectFolder -ChildPath 'clips'`);
                     scriptLines.push(`    $sourceVideoPath = (Join-Path -Path (${subfolderRes}) -ChildPath '${escapedVideoName}')`);
 
                     const videoBaseName = sel.videoName.substring(0, sel.videoName.lastIndexOf('.'));
@@ -5253,19 +5287,6 @@
                 if (part.startsWith('crop:')) {
                     sel.crop = part.substring(5);
                 }
-                if (part.startsWith('clips:')) {
-                    const clipsStr = part.substring(6);
-                    const clipParts = clipsStr.split(';').filter(p => p.trim());
-                    sel.clips = clipParts.map(cp => {
-                        const subParts = cp.split('::');
-                        return {
-                            id: Date.now() + Math.random().toString(36).substr(2, 9),
-                            start: parseFloat(subParts[0]) || 0,
-                            end: parseFloat(subParts[1]) || 0,
-                            tags: subParts[2] || ""
-                        };
-                    });
-                }
                 if (part.startsWith('preserve_size:')) {
                     sel.preserveOriginalSize = (part.substring(14).trim() === 'true');
                 }
@@ -5283,6 +5304,46 @@
                 });
                 localStorage.setItem('clip-globalSavedCategories', JSON.stringify(Array.from(globalSavedCategories)));
             } catch (e) {}
+
+            // Load clips from clips/clips.txt
+            try {
+                const clipsDirHandle = await projectHandle.getDirectoryHandle('clips');
+                const clipsFileHandle = await clipsDirHandle.getFileHandle('clips.txt');
+                const file = await clipsFileHandle.getFile();
+                const text = await file.text();
+                text.split('\n').forEach(line => {
+                    const commaIdx = line.indexOf(',');
+                    if (commaIdx !== -1) {
+                        const videoName = line.substring(0, commaIdx).trim();
+                        const rest = line.substring(commaIdx + 1).trim();
+                        const key = projectPath + '|' + videoName;
+                        if (!shortcutSelections.has(key)) {
+                            shortcutSelections.set(key, {
+                                videoName: videoName,
+                                projectPath: projectPath,
+                                subfolder: '',
+                                type: '', rotation: "0", flipped: false
+                            });
+                        }
+                        const sel = shortcutSelections.get(key);
+                        if (rest.startsWith('clips:')) {
+                            const clipsStr = rest.substring(6);
+                            const clipParts = clipsStr.split(';').filter(p => p.trim());
+                            sel.clips = clipParts.map(cp => {
+                                const subParts = cp.split('::');
+                                return {
+                                    id: Date.now() + Math.random().toString(36).substr(2, 9),
+                                    start: parseFloat(subParts[0]) || 0,
+                                    end: parseFloat(subParts[1]) || 0,
+                                    tags: subParts[2] || ""
+                                };
+                            });
+                        }
+                    }
+                });
+            } catch (e) {
+                // Ignore if clips/clips.txt does not exist
+            }
         }
 
         async function getRotationData(projectHandle) {
