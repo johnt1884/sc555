@@ -4501,7 +4501,7 @@
                 function generateClipScript() {
             const processVideoDefinition = [
                 'function Process-Video {',
-                '    param([string]$sourcePath, [string]$targetPath, [array]$cuts, [array]$markers, [bool]$flipped, [string]$crop, [bool]$preserveOriginalSize)',
+                '    param([string]$sourcePath, [string]$targetPath, [array]$cuts, [array]$markers, [bool]$flipped, [string]$crop, [bool]$preserveOriginalSize, [bool]$isClip)',
                 '    Write-Host "--- Processing Video: $([System.IO.Path]::GetFileName($sourcePath)) ---" -ForegroundColor Cyan',
                 '    if (-not $sourcePath -or -not (Test-Path -LiteralPath $sourcePath)) { ',
                 '        Write-Host "Source path empty or invalid: $sourcePath" -ForegroundColor Red',
@@ -4536,7 +4536,17 @@
                 '        ',
                 '        $mid = ($pStart + $pEnd) / 2',
                 '        $isCut = $false',
-                '        if ($cuts) { foreach ($c in $cuts) { if ($mid -ge $c.start -and $mid -lt $c.end) { $isCut = $true; break } } }',
+                '        if ($isClip) {',
+                '            $inside = $false',
+                '            if ($cuts) {',
+                '                foreach ($c in $cuts) {',
+                '                    if ($mid -ge $c.start -and $mid -lt $c.end) { $inside = $true; break }',
+                '                }',
+                '            }',
+                '            if (-not $inside) { $isCut = $true }',
+                '        } else {',
+                '            if ($cuts) { foreach ($c in $cuts) { if ($mid -ge $c.start -and $mid -lt $c.end) { $isCut = $true; break } } }',
+                '        }',
                 '        if ($isCut) { continue }',
                 '        ',
                 '        $userRot = 0',
@@ -4801,7 +4811,7 @@
                         const effectivePreserveSize = (sel.preserveOriginalSize !== undefined && sel.preserveOriginalSize !== null) ? sel.preserveOriginalSize : preserveOriginalSizeGlobalCheckbox.checked;
                         const preserveSizeArg = effectivePreserveSize ? '$true' : '$false';
 
-                        scriptLines.push(`    Process-Video -sourcePath $sourceVideoPath -targetPath $clipPath -cuts $cuts -markers @() -flipped ${isFlipped} -crop ${cropArg} -preserveOriginalSize ${preserveSizeArg}`);
+                        scriptLines.push(`    Process-Video -sourcePath $sourceVideoPath -targetPath $clipPath -cuts $cuts -markers @() -flipped ${isFlipped} -crop ${cropArg} -preserveOriginalSize ${preserveSizeArg} -isClip $true`);
                         summaryActions.edits.push(`Clip ${idx + 1} from ${sel.videoName} -> clips/${clipFileName}`);
                     });
                     scriptLines.push('');
@@ -5022,7 +5032,7 @@
                 const hasSessionOther = sel && (sel.deleteEditThumbnails || sel.editFlipped);
                 const hasLoadedEdit = editModeRotatedVideos.has(key);
 
-                if (sel && sel.editModeRotated) {
+                if (sel && (sel.editModeRotated || (sel.clips && sel.clips.length > 0))) {
                     if (hasSessionRotation) dataParts.push('edit_rotated:true');
                     if (hasSessionCuts) dataParts.push('has_cuts:true');
                     if (sel.crop) dataParts.push(`crop:${sel.crop}`);
