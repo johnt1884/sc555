@@ -4622,7 +4622,7 @@
                 '        ',
                 '        # Scale to target padded dimensions with aspect ratio preservation (letterbox/pillarbox)',
                 '        # To avoid scaling if already perfect, we check size',
-                '        $filterComplex += "${curr}scale=$padW:$padH:force_original_aspect_ratio=decrease,pad=$padW:$padH:(ow-iw)/2:(oh-ih)/2 [v$i]; "',
+                '        $filterComplex += "${curr}scale=${padW}:${padH}:force_original_aspect_ratio=decrease,pad=${padW}:${padH}:(ow-iw)/2:(oh-ih)/2 [v$i]; "',
                 '    }',
                 '    ',
                 '    # Now concat segments',
