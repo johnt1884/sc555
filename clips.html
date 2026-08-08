@@ -5002,17 +5002,15 @@
 
             // --- Misc Data (Categories & Edit Rotations) ---
             const miscUpdates = new Map(); // projectPath -> { videoName: dataString }
-            canvases.forEach(canvas => {
-                if (canvas.path !== undefined) {
-                    miscUpdates.set(canvas.path, {});
-                }
-            });
 
             const allMiscVideos = new Set();
-            videoCategories.forEach((cats, key) => { if (cats.size > 0) allMiscVideos.add(key); });
-            editModeRotatedVideos.forEach((val, key) => { if (val) allMiscVideos.add(key); });
             shortcutSelections.forEach((sel, key) => {
-                if (sel.editModeRotated || (sel.clips && sel.clips.length > 0)) {
+                const initial = initialShortcutSelections.get(key);
+                const initialClipsStr = initial ? (initial.clips || '[]') : '[]';
+                const currentClipsStr = JSON.stringify(sel.clips || []);
+                const clipsChanged = initialClipsStr !== currentClipsStr;
+
+                if (sel.editModeRotated || clipsChanged) {
                     allMiscVideos.add(key);
                 }
             });
@@ -5146,7 +5144,7 @@
                 return (hasCuts || markersChanged || editRotationChanged || editFlippedChanged || sel.crop || (sel.preserveOriginalSize !== undefined && sel.preserveOriginalSize !== null) || (sel.backupOriginal)) && sel.editModeRotated;
             });
 
-            if (hasProcessing) {
+            if (hasProcessing || clipsToCreate.length > 0) {
                 scriptLines.push(...processVideoDefinition);
             }
 
