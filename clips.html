@@ -4737,6 +4737,9 @@
                 ''
             ];
 
+            // Unconditionally define Process-Video helper near the top of the PowerShell script
+            scriptLines.push(...processVideoDefinition);
+
             // --- Moving Videos and Thumbnails ---
             const fileMoves = selectionsToProcess.filter(sel => sel.targetProject);
             if (fileMoves.length > 0) {
@@ -5136,17 +5139,6 @@
                 scriptLines.push('');
             }
 
-            const hasProcessing = selectionsToProcess.some(sel => {
-                const hasCuts = sel.cuts && sel.cuts.length > 0;
-                const markersChanged = sel.markers && sel.markers.length > 0;
-                const editRotationChanged = sel.editRotation && sel.editRotation !== "0";
-                const editFlippedChanged = !!sel.editFlipped;
-                return (hasCuts || markersChanged || editRotationChanged || editFlippedChanged || sel.crop || (sel.preserveOriginalSize !== undefined && sel.preserveOriginalSize !== null) || (sel.backupOriginal)) && sel.editModeRotated;
-            });
-
-            if (hasProcessing || clipsToCreate.length > 0) {
-                scriptLines.push(...processVideoDefinition);
-            }
 
             scriptLines.push('Write-Host "Script execution complete."');
             scriptLines.push('Read-Host -Prompt "Press Enter to exit"');
